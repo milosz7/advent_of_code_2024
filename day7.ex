@@ -14,21 +14,21 @@ defmodule Solution do
   def parse_input(lines) do
     lines
     |> Stream.map(fn x -> String.split(x, ":") end)
-    |> Stream.map(fn [result, nums] -> [String.to_integer(result), parse_nums(nums)] end)
+    |> Stream.map(fn [result, nums] -> {String.to_integer(result), parse_nums(nums)} end)
   end
 
   def find_operators(input, current \\ nil)
 
-  def find_operators([result, [a | rest]], nil) do
-    find_operators([result, rest], a)
+  def find_operators({result, [a | rest]}, nil) do
+    find_operators({result, rest}, a)
   end
 
-  def find_operators([result, []], current) do
+  def find_operators({result, []}, current) do
     if current == result, do: current, else: false
   end
 
-  def find_operators([result, [a | rest]], current) do
-    find_operators([result, rest], current + a) || find_operators([result, rest], current * a)
+  def find_operators({result, [a | rest]}, current) do
+    find_operators({result, rest}, current + a) || find_operators({result, rest}, current * a)
   end
 
   def concat(a, b) do
@@ -37,25 +37,25 @@ defmodule Solution do
 
   def find_operators_concat(input, current \\ nil)
 
-  def find_operators_concat([result, []], current) do
+  def find_operators_concat({result, []}, current) do
     if current == result, do: current, else: false
   end
 
-  def find_operators_concat([result, [a | rest]], nil) do
-    find_operators_concat([result, rest], a)
+  def find_operators_concat({result, [a | rest]}, nil) do
+    find_operators_concat({result, rest}, a)
   end
 
-  def find_operators_concat([result, [a | rest]], current) do
-    find_operators_concat([result, rest], current + a) ||
-      find_operators_concat([result, rest], current * a) ||
-      find_operators_concat([result, rest], concat(current, a))
+  def find_operators_concat({result, [a | rest]}, current) do
+    find_operators_concat({result, rest}, current + a) ||
+      find_operators_concat({result, rest}, current * a) ||
+      find_operators_concat({result, rest}, concat(current, a))
   end
 
   def solve_1(file_name) do
     file_name
     |> read_file()
     |> parse_input()
-    |> Task.async_stream(fn line -> find_operators(line) end)
+    |> Task.async_stream(&find_operators/1)
     |> Enum.reduce(0, fn {:ok, res}, acc -> if res, do: acc + res, else: acc end)
   end
 
@@ -63,7 +63,7 @@ defmodule Solution do
     file_name
     |> read_file()
     |> parse_input()
-    |> Task.async_stream(fn line -> find_operators_concat(line) end)
+    |> Task.async_stream(&find_operators_concat/1)
     |> Enum.reduce(0, fn {:ok, res}, acc -> if res, do: acc + res, else: acc end)
   end
 end
