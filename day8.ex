@@ -30,9 +30,9 @@ defmodule Solution do
     0 <= y and y <= max_y and 0 <= x and x <= max_x
   end
 
-  def calculate_antinodes({{y0, x0}, {y1, x1}}) do
-    move_x = 2 * abs(abs(x0) - abs(x1))
-    move_y = 2 * abs(abs(y0) - abs(y1))
+  def calculate_antinodes({{y0, x0}, {y1, x1}}, scale \\ 2) do
+    move_x = scale * abs(abs(x0) - abs(x1))
+    move_y = scale * abs(abs(y0) - abs(y1))
 
     cond do
       y0 > y1 and x0 > x1 -> [{y0 - move_y, x0 - move_x}, {y1 + move_y, x1 + move_x}]
@@ -59,10 +59,33 @@ defmodule Solution do
     |> MapSet.size()
   end
 
+  def parse_anthenas_increment_range({max_y, max_x, anthenas}) do
+    pairs =
+      anthenas
+      |> Enum.flat_map(fn {_, coordinates} -> get_pairs(coordinates) end)
+
+    1..max(max_x, max_y)
+    |> Stream.zip(Stream.cycle([pairs]))
+    |> Enum.flat_map(fn {scale, pairs} ->
+      pairs
+      |> Enum.flat_map(&calculate_antinodes(&1, scale))
+    end)
+    |> Enum.filter(&check_bounds(&1, max_y, max_x))
+    |> MapSet.new()
+    |> MapSet.size()
+  end
+
   def solve_1(file_path) do
     file_path
     |> read_file()
     |> parse_input()
     |> parse_anthenas()
+  end
+
+  def solve_2(file_path) do
+    file_path
+    |> read_file()
+    |> parse_input()
+    |> parse_anthenas_increment_range()
   end
 end
