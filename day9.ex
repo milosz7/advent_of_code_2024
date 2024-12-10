@@ -140,11 +140,7 @@ defmodule Solution do
   def checksum_from_tuples(reordered_disk) do
     reordered_disk
     |> Enum.reduce(0, fn {id, start, len}, acc ->
-      sum =
-        for(num <- start..(start + len - 1), do: id * num)
-        |> Enum.sum()
-
-      acc + sum
+      acc + Enum.sum(start..(start + len - 1)) * id
     end)
   end
 
