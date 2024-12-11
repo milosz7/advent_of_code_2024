@@ -71,7 +71,44 @@ defmodule Solution do
       |> parse_input()
 
     start
-    |> Enum.map(fn point -> traverse_map([point], map) end)
-    |> Enum.reduce(0, fn result, acc -> acc + MapSet.size(MapSet.intersection(finish, result)) end)
+    |> Task.async_stream(fn point -> traverse_map([point], map) end)
+    |> Enum.reduce(0, fn {:ok, result}, acc ->
+      acc + MapSet.size(MapSet.intersection(finish, result))
+    end)
+  end
+
+  def traverse_no_tracking(points, map, found_peaks \\ 0)
+
+  def traverse_no_tracking([], _, found_peaks), do: found_peaks
+
+  def traverse_no_tracking([{current, val} | rest], map, found_peaks) do
+    found_peaks = if val == @finish, do: found_peaks + 1, else: found_peaks
+
+    new_points =
+      current
+      |> get_neighbors()
+      |> Enum.reduce([], fn coords, acc ->
+        if Map.has_key?(map, coords) do
+          [{coords, Map.get(map, coords)} | acc]
+        else
+          acc
+        end
+      end)
+      |> Enum.filter(fn {_, new_val} ->
+        new_val - val == 1
+      end)
+
+    traverse_no_tracking(rest ++ new_points, map, found_peaks)
+  end
+
+  def solve_2(file_path) do
+    {start, _, map} =
+      file_path
+      |> read_file()
+      |> parse_input()
+
+    start
+    |> Task.async_stream(fn point -> traverse_no_tracking([point], map) end)
+    |> Enum.reduce(0, fn {:ok, res}, acc -> acc + res end)
   end
 end
