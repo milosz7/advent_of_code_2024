@@ -24,24 +24,38 @@ defmodule Solution do
     MapSet.new([{x + 1, y}, {x - 1, y}, {x, y + 1}, {x, y - 1}])
   end
 
+  def count_fences_area(groups) do
+    groups
+    |> Enum.map(&count_fence_area/1)
+    |> Enum.reduce(0, fn {area, fences}, acc -> acc + area * fences end)
+  end
+
+  def count_fence_area(group) do
+    group
+    |> Enum.reduce({0, 0}, fn point, {area, fences} ->
+      n_valid =
+        point |> get_neighbors() |> Enum.filter(&MapSet.member?(group, &1)) |> length()
+
+      {area + 1, fences + @max_fences - n_valid}
+    end)
+  end
+
   def traverse_graph(
         map,
         start \\ {0, 0},
         groups \\ [],
-        total_visited \\ MapSet.new(),
-        fence_price \\ 0
+        total_visited \\ MapSet.new()
       )
 
-  def traverse_graph(_, nil, _, _, fence_price), do: fence_price
+  def traverse_graph(_, nil, groups, _), do: groups
 
   def traverse_graph(
         map,
         start,
         groups,
-        total_visited,
-        fence_price
+        total_visited
       ) do
-    {visited, fence} = split_into_groups([start], map)
+    visited = split_into_groups([start], map)
     total_visited = MapSet.union(total_visited, visited)
 
     start =
@@ -53,18 +67,16 @@ defmodule Solution do
         end
       end)
 
-    fence_price = fence_price + MapSet.size(visited) * fence
-
-    traverse_graph(map, start, [visited | groups], total_visited, fence_price)
+    traverse_graph(map, start, [visited | groups], total_visited)
   end
 
-  def split_into_groups(points, map, visited \\ MapSet.new(), total_fences \\ 0)
+  def split_into_groups(points, map, visited \\ MapSet.new())
 
-  def split_into_groups([], _, visited, total_fences), do: {visited, total_fences}
+  def split_into_groups([], _, visited), do: visited
 
-  def split_into_groups([current | rest], map, visited, total_fences) do
+  def split_into_groups([current | rest], map, visited) do
     if MapSet.member?(visited, current) do
-      split_into_groups(rest, map, visited, total_fences)
+      split_into_groups(rest, map, visited)
     else
       visited = MapSet.put(visited, current)
       symbol = Map.get(map, current)
@@ -79,20 +91,15 @@ defmodule Solution do
             acc
           end
         end)
-        |> Enum.filter(fn {_, new_symbol} ->
-          symbol == new_symbol
+        |> Enum.filter(fn {point, new_symbol} ->
+          symbol == new_symbol and !MapSet.member?(visited, point)
         end)
-
-      new_points =
-        valid_neighbors
-        |> Stream.reject(fn {point, _} -> MapSet.member?(visited, point) end)
         |> Enum.map(fn {point, _} -> point end)
 
       split_into_groups(
-        new_points ++ rest,
+        valid_neighbors ++ rest,
         map,
-        visited,
-        total_fences + @max_fences - length(valid_neighbors)
+        visited
       )
     end
   end
@@ -102,5 +109,6 @@ defmodule Solution do
     |> read_file()
     |> parse_input()
     |> traverse_graph()
+    |> count_fences_area()
   end
 end
