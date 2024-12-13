@@ -104,11 +104,117 @@ defmodule Solution do
     end
   end
 
+  def left({x, y}), do: {x - 1, y}
+  def right({x, y}), do: {x + 1, y}
+  def top({x, y}), do: {x, y - 1}
+  def bottom({x, y}), do: {x, y + 1}
+  def bottom_right({x, y}), do: {x + 1, y + 1}
+  def bottom_left({x, y}), do: {x - 1, y + 1}
+  def top_right({x, y}), do: {x + 1, y - 1}
+  def top_left({x, y}), do: {x - 1, y - 1}
+
+  def check_two_neighbors(point, group) do
+    cond do
+      MapSet.member?(group, left(point)) and MapSet.member?(group, right(point)) ->
+        0
+
+      MapSet.member?(group, top(point)) and MapSet.member?(group, bottom(point)) ->
+        0
+
+      MapSet.member?(group, left(point)) and MapSet.member?(group, top(point)) ->
+        if MapSet.member?(group, top_left(point)), do: 1, else: 2
+
+      MapSet.member?(group, left(point)) and MapSet.member?(group, bottom(point)) ->
+        if MapSet.member?(group, bottom_left(point)), do: 1, else: 2
+
+      MapSet.member?(group, right(point)) and MapSet.member?(group, top(point)) ->
+        if MapSet.member?(group, top_right(point)), do: 1, else: 2
+
+      MapSet.member?(group, right(point)) and MapSet.member?(group, bottom(point)) ->
+        if MapSet.member?(group, bottom_right(point)), do: 1, else: 2
+    end
+  end
+
+  def check_three_neighbors(point, group) do
+    cond do
+      MapSet.member?(group, left(point)) and MapSet.member?(group, right(point)) and
+          MapSet.member?(group, top(point)) ->
+        tl = if MapSet.member?(group, top_left(point)), do: 1, else: 0
+        tr = if MapSet.member?(group, top_right(point)), do: 1, else: 0
+        2 - tl - tr
+
+      MapSet.member?(group, left(point)) and MapSet.member?(group, right(point)) and
+          MapSet.member?(group, bottom(point)) ->
+        bl = if MapSet.member?(group, bottom_left(point)), do: 1, else: 0
+        br = if MapSet.member?(group, bottom_right(point)), do: 1, else: 0
+        2 - bl - br
+
+      MapSet.member?(group, top(point)) and MapSet.member?(group, right(point)) and
+          MapSet.member?(group, bottom(point)) ->
+        tr = if MapSet.member?(group, top_right(point)), do: 1, else: 0
+        br = if MapSet.member?(group, bottom_right(point)), do: 1, else: 0
+        2 - tr - br
+
+      MapSet.member?(group, top(point)) and MapSet.member?(group, left(point)) and
+          MapSet.member?(group, bottom(point)) ->
+        tl = if MapSet.member?(group, top_left(point)), do: 1, else: 0
+        bl = if MapSet.member?(group, bottom_left(point)), do: 1, else: 0
+        2 - tl - bl
+    end
+  end
+
+  def check_four_neighbors(point, group) do
+    tl = if MapSet.member?(group, top_left(point)), do: 1, else: 0
+    bl = if MapSet.member?(group, bottom_left(point)), do: 1, else: 0
+    tr = if MapSet.member?(group, top_right(point)), do: 1, else: 0
+    br = if MapSet.member?(group, bottom_right(point)), do: 1, else: 0
+    4 - tl - bl - tr - br
+  end
+
+  def count_corners(points, group, corners \\ 0, area \\ 0)
+  def count_corners([], _, corners, area), do: corners * area
+
+  def count_corners([point | rest], group, corners, area) do
+    neighbors =
+      point |> get_neighbors() |> Enum.filter(&MapSet.member?(group, &1))
+
+    case length(neighbors) do
+      0 ->
+        count_corners(rest, group, corners + 4, area + 1)
+
+      1 ->
+        count_corners(rest, group, corners + 2, area + 1)
+
+      2 ->
+        count_corners(rest, group, corners + check_two_neighbors(point, group), area + 1)
+
+      3 ->
+        count_corners(rest, group, corners + check_three_neighbors(point, group), area + 1)
+
+      4 ->
+        count_corners(rest, group, corners + check_four_neighbors(point, group), area + 1)
+    end
+  end
+
+  def count_corners_all(groups) do
+    groups
+    |> Task.async_stream(fn group -> count_corners(MapSet.to_list(group), group) end)
+    |> Enum.reduce(0, fn {:ok, res}, acc -> acc + res end)
+  end
+
   def solve_1(path) do
     path
     |> read_file()
     |> parse_input()
     |> traverse_graph()
     |> count_fences_area()
+  end
+
+  def solve_2(path) do
+    path
+    |> read_file()
+    |> parse_input()
+    |> traverse_graph()
+    |> count_corners_all()
   end
 end
