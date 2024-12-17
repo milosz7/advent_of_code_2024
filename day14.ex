@@ -77,7 +77,6 @@ defmodule Solution do
         {[{robots, second} | configs], robots}
       end)
       |> elem(0)
-      # |> Stream.map(fn {robots, second} -> {MapSet.new(robots)})
       |> Task.async_stream(fn {robots, second} -> {count_quadrants(robots), second, robots} end)
       |> Stream.map(fn {:ok, res} -> res end)
       |> Enum.sort_by(&elem(&1, 0))
