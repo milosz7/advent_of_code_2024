@@ -31,19 +31,15 @@ defmodule Solution do
   end
 
   def get_weight(:north, :east), do: 1001
-  def get_weight(:north, :south), do: 2001
   def get_weight(:north, :west), do: 1001
 
   def get_weight(:east, :north), do: 1001
   def get_weight(:east, :south), do: 1001
-  def get_weight(:east, :west), do: 2001
 
-  def get_weight(:south, :north), do: 2001
   def get_weight(:south, :east), do: 1001
   def get_weight(:south, :west), do: 1001
 
   def get_weight(:west, :north), do: 1001
-  def get_weight(:west, :east), do: 2001
   def get_weight(:west, :south), do: 1001
 
   def get_weight(_, _), do: 1
