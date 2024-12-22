@@ -32,67 +32,118 @@ defmodule Solution do
     {maze |> Map.keys() |> MapSet.new(), start, finish}
   end
 
-  def get_weight(nil, _), do: 1
-  def get_weight(_, nil), do: 1
-  def get_weight(:h, :h), do: 1
-  def get_weight(:v, :v), do: 1
-  def get_weight(_, _), do: 1001
+  def get_weight(:north, :east), do: 1001
+  def get_weight(:north, :south), do: 2001
+  def get_weight(:north, :west), do: 1001
+
+  def get_weight(:east, :north), do: 1001
+  def get_weight(:east, :south), do: 1001
+  def get_weight(:east, :west), do: 2001
+
+  def get_weight(:south, :north), do: 2001
+  def get_weight(:south, :east), do: 1001
+  def get_weight(:south, :west), do: 1001
+
+  def get_weight(:west, :north), do: 1001
+  def get_weight(:west, :east), do: 2001
+  def get_weight(:west, :south), do: 1001
+
+  def get_weight(_, _), do: 1
 
   def get_neighbors({x, y}, map) do
-    candidates = [{{x + 1, y}, :h}, {{x - 1, y}, :h}, {{x, y + 1}, :v}, {{x, y - 1}, :v}]
+    candidates = [
+      {{x + 1, y}, :east},
+      {{x - 1, y}, :west},
+      {{x, y + 1}, :south},
+      {{x, y - 1}, :north}
+    ]
 
     candidates
     |> Enum.filter(fn {{x, y}, _} -> MapSet.member?(map, {x, y}) end)
   end
 
-  def dijkstra(queue = %MapSet{map: map}, graph, distances, previous, directions)
-      when map_size(map) == 0,
-      do: {distances, previous}
+  def dijkstra(queue, graph, distances, global_distances, prev, visited) do
+    if MapSet.size(queue) == 0 do
+      {distances, distances, prev}
+    else
+      {current, current_direction} =
+        queue
+        |> Enum.min_by(fn val -> Map.get(distances, val) end)
 
-  def dijkstra(queue, graph, distances, previous, directions) do
-    current =
-      queue
-      |> Enum.min_by(fn val -> Map.get(distances, val) end)
+      queue = MapSet.delete(queue, {current, current_direction})
 
-    queue = MapSet.delete(queue, current)
+      visited = MapSet.put(visited, {current, current_direction})
 
-    {previous, distances, directions} =
-      current
-      |> get_neighbors(graph)
-      |> Enum.reduce(
-        {previous, distances, directions},
-        fn {neighbor, direction}, {previous_acc, distances_acc, directions_acc} ->
-          previous_direction = directions_acc |> Map.get(current)
-          alt = Map.get(distances_acc, current) + get_weight(direction, previous_direction)
+      {prev, distances, global_distances, visited} =
+        current
+        |> get_neighbors(graph)
+        |> Enum.reject(fn point -> MapSet.member?(visited, point) end)
+        |> Enum.reduce(
+          {prev, distances, global_distances, visited},
+          fn {neighbor, direction}, {prev_acc, distances_acc, global_acc, visited_acc} ->
+            alt =
+              Map.get(distances_acc, {current, current_direction}) +
+                get_weight(direction, current_direction)
 
-          if alt < Map.get(distances_acc, neighbor) do
-            {previous_acc |> Map.put(neighbor, current), distances_acc |> Map.put(neighbor, alt),
-             directions_acc |> Map.put(neighbor, direction)}
-          else
-            {previous_acc, distances_acc, directions_acc}
+            current_neighbor_dist =
+              Map.get(distances_acc, {neighbor, direction})
+
+            cond do
+              alt <= current_neighbor_dist ->
+                new_distances = Map.put(distances_acc, {neighbor, direction}, alt)
+
+                new_prev =
+                  if alt < current_neighbor_dist do
+                    Map.put(
+                      prev_acc,
+                      {neighbor, direction},
+                      MapSet.new([{current, current_direction}])
+                    )
+                  else
+                    Map.update(
+                      prev_acc,
+                      {neighbor, direction},
+                      MapSet.new([{current, current_direction}]),
+                      &MapSet.put(&1, {current, current_direction})
+                    )
+                  end
+
+                {new_prev, new_distances, global_acc, visited_acc}
+
+              true ->
+                {prev_acc, distances_acc, global_acc, visited_acc}
+            end
           end
-        end
-      )
+        )
 
-    dijkstra(queue, graph, distances, previous, directions)
+      dijkstra(queue, graph, distances, global_distances, prev, visited)
+    end
   end
 
   def prepare_dijkstra(points, start) do
     distances =
       points
-      |> Enum.reduce(%{}, fn point, acc -> Map.put(acc, point, @infinity) end)
-      |> Map.put(start, 0)
+      |> Enum.reduce(%{}, fn point, acc ->
+        acc
+        |> Map.put({point, :north}, @infinity)
+        |> Map.put({point, :south}, @infinity)
+        |> Map.put({point, :east}, @infinity)
+        |> Map.put({point, :west}, @infinity)
+      end)
+      |> Map.put({start, :east}, 0)
 
     prev =
       points
-      |> Enum.reduce(%{}, fn point, acc -> Map.put(acc, point, nil) end)
+      |> Enum.reduce(%{}, fn point, acc -> Map.put(acc, point, MapSet.new()) end)
 
-    directions =
+    global_distances =
       points
-      |> Enum.reduce(%{}, fn point, acc -> Map.put(acc, point, nil) end)
-      |> Map.put(start, :h)
+      |> Enum.reduce(%{}, fn point, acc ->
+        Map.put(acc, point, @infinity)
+      end)
+      |> Map.put(start, 0)
 
-    {distances, prev, directions}
+    {distances, prev, global_distances}
   end
 
   def solve_1(path) do
@@ -101,69 +152,54 @@ defmodule Solution do
       |> read_file()
       |> parse_maze()
 
-    {distances, prev, directions} = prepare_dijkstra(points, start)
+    {distances, prev, global_distances} = prepare_dijkstra(points, start)
 
-    {distances, prev} =
-      dijkstra(points, points, distances, prev, directions)
-
-    best_distance = distances |> Map.get(finish)
-  end
-
-  def solve_2(path) do
-    {points, start, finish} =
-      path
-      |> read_file()
-      |> parse_maze()
-
-    {distances, prev, directions} = prepare_dijkstra(points, start)
-
-    {distances, prev} =
-      dijkstra(points, points, distances, prev, directions)
-
-    best_distance = distances |> Map.get(finish)
-
-    path = traverse_previous(finish, prev)
-    best_path = MapSet.new(path)
-
-    best_path_with_neighbors =
-      best_path
-      |> Enum.reduce(best_path, fn point, acc ->
-        neighbors = get_neighbors(point, points) |> MapSet.new()
-        MapSet.union(acc, neighbors)
+    queue =
+      points
+      |> Enum.reduce(MapSet.new(), fn point, acc ->
+        acc
+        |> MapSet.put({point, :north})
+        |> MapSet.put({point, :south})
+        |> MapSet.put({point, :west})
+        |> MapSet.put({point, :east})
       end)
 
-    paths_without_one_first_run =
-      best_path_with_neighbors
-      |> Task.async_stream(
-        fn elem ->
-          new_queue = MapSet.delete(points, elem)
-          {new_distances, new_prev, new_directions} = prepare_dijkstra(new_queue, start)
-
-          {new_distances, new_prev} =
-            dijkstra(new_queue, new_queue, new_distances, new_prev, new_directions)
-
-          new_best = new_distances |> Map.get(finish)
-
-          {new_best == best_distance,
-           new_best != best_distance || traverse_previous(finish, new_prev)}
-        end,
-        timeout: :infinity
+    {distances, global_distances, prev} =
+      dijkstra(
+        queue,
+        points,
+        distances,
+        global_distances,
+        prev,
+        MapSet.new([{start, :east}])
       )
-      |> Enum.reduce([], fn {:ok, res}, acc -> [res | acc] end)
-      |> Enum.filter(fn {is_equal, _path} -> is_equal end)
-      |> Enum.reduce(best_path, fn {_is_equal, path}, acc ->
-        path |> MapSet.new() |> MapSet.union(acc)
-      end)
-      |> MapSet.put(finish)
-      |> MapSet.size()
+
+    {traversal_start_tile, score} =
+      distances
+      |> Map.filter(fn {{coords, _dist}, _score} -> coords == finish end)
+      |> Enum.min_by(fn {{_coords, _dist}, score} -> score end)
+
+    {traverse_previous([traversal_start_tile], prev, {start, :east}), score}
   end
 
-  def traverse_previous(nodes, previous, visited \\ [])
-  def traverse_previous(nil, _, visited), do: tl(visited)
+  def traverse_previous(to_visit, previous, start, visited \\ MapSet.new())
 
-  def traverse_previous(current, previous, visited) do
-    to_visit = previous[current]
-    traverse_previous(to_visit, previous, [to_visit | visited])
+  def traverse_previous([current | rest], previous, start, visited) do
+    if current == start do
+      MapSet.size(visited) + 1
+    else
+      to_visit = previous[current]
+
+      nodes =
+        to_visit |> Enum.reduce(MapSet.new(), fn {point, _dir}, acc -> MapSet.put(acc, point) end)
+
+      traverse_previous(
+        rest ++ MapSet.to_list(to_visit),
+        previous,
+        start,
+        MapSet.union(visited, nodes)
+      )
+    end
   end
 
   def visualise(map, x_lim, y_lim) do
