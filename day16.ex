@@ -2,7 +2,6 @@ defmodule Solution do
   @wall "#"
   @start "S"
   @finish "E"
-  @infinity 100_000_000_000
 
   def read_file(path) do
     path
@@ -24,8 +23,8 @@ defmodule Solution do
       |> Enum.reduce(%{}, fn {x, y, val}, acc -> Map.put(acc, {x, y}, val) end)
       |> Map.reject(fn {_, v} -> v == @wall end)
 
-    {start, _} = maze |> Enum.find(fn {{x, y}, value} -> value == @start end)
-    {finish, _} = maze |> Enum.find(fn {{x, y}, value} -> value == @finish end)
+    {start, _} = maze |> Enum.find(fn {_, value} -> value == @start end)
+    {finish, _} = maze |> Enum.find(fn {_, value} -> value == @finish end)
 
     {maze |> Map.keys() |> MapSet.new(), start, finish}
   end
@@ -57,14 +56,10 @@ defmodule Solution do
   end
 
   def dijkstra(queue, graph, distances, prev, visited) do
-    if MapSet.size(queue) == 0 do
+    if :gb_sets.size(queue) == 0 do
       {distances, prev}
     else
-      {current, current_direction} =
-        queue
-        |> Enum.min_by(fn val -> Map.get(distances, val) end)
-
-      queue = MapSet.delete(queue, {current, current_direction})
+      {{current_distance, {current, current_direction}}, queue} = :gb_sets.take_smallest(queue)
 
       visited = MapSet.put(visited, {current, current_direction})
 
@@ -75,17 +70,14 @@ defmodule Solution do
         |> Enum.reduce(
           {prev, distances, visited, queue},
           fn {neighbor, direction}, {prev_acc, distances_acc, visited_acc, queue_acc} ->
-            alt =
-              Map.get(distances_acc, {current, current_direction}) +
-                get_weight(direction, current_direction)
+            alt = current_distance + get_weight(direction, current_direction)
 
             current_neighbor_dist =
               Map.get(distances_acc, {neighbor, direction})
 
-            queue_acc = MapSet.put(queue_acc, {neighbor, direction})
-
             if alt <= current_neighbor_dist do
               new_distances = Map.put(distances_acc, {neighbor, direction}, alt)
+              queue_acc = :gb_sets.add({alt, {neighbor, direction}}, queue_acc)
 
               new_prev =
                 if alt < current_neighbor_dist do
@@ -105,6 +97,7 @@ defmodule Solution do
 
               {new_prev, new_distances, visited_acc, queue_acc}
             else
+              queue_acc = :gb_sets.add({current_neighbor_dist, {neighbor, direction}}, queue_acc)
               {prev_acc, distances_acc, visited_acc, queue_acc}
             end
           end
@@ -121,7 +114,8 @@ defmodule Solution do
       |> parse_maze()
 
     distances = %{{start, :east} => 0}
-    queue = visited = MapSet.new([{start, :east}])
+    visited = MapSet.new([{start, :east}])
+    queue = :gb_sets.from_list([{0, {start, :east}}])
     prev = %{{start, :east} => MapSet.new()}
 
     {distances, prev} =
