@@ -1,5 +1,4 @@
 defmodule Solution do
-  require Integer
   @wall "#"
   @start "S"
   @finish "E"
@@ -62,7 +61,7 @@ defmodule Solution do
     |> Enum.filter(fn {{x, y}, _} -> MapSet.member?(map, {x, y}) end)
   end
 
-  def dijkstra(queue, graph, distances, global_distances, prev, visited) do
+  def dijkstra(queue, graph, distances, prev, visited) do
     if MapSet.size(queue) == 0 do
       {distances, distances, prev}
     else
@@ -74,13 +73,13 @@ defmodule Solution do
 
       visited = MapSet.put(visited, {current, current_direction})
 
-      {prev, distances, global_distances, visited} =
+      {prev, distances, visited} =
         current
         |> get_neighbors(graph)
         |> Enum.reject(fn point -> MapSet.member?(visited, point) end)
         |> Enum.reduce(
-          {prev, distances, global_distances, visited},
-          fn {neighbor, direction}, {prev_acc, distances_acc, global_acc, visited_acc} ->
+          {prev, distances, visited},
+          fn {neighbor, direction}, {prev_acc, distances_acc, visited_acc} ->
             alt =
               Map.get(distances_acc, {current, current_direction}) +
                 get_weight(direction, current_direction)
@@ -88,35 +87,33 @@ defmodule Solution do
             current_neighbor_dist =
               Map.get(distances_acc, {neighbor, direction})
 
-            cond do
-              alt <= current_neighbor_dist ->
-                new_distances = Map.put(distances_acc, {neighbor, direction}, alt)
+            if alt <= current_neighbor_dist do
+              new_distances = Map.put(distances_acc, {neighbor, direction}, alt)
 
-                new_prev =
-                  if alt < current_neighbor_dist do
-                    Map.put(
-                      prev_acc,
-                      {neighbor, direction},
-                      MapSet.new([{current, current_direction}])
-                    )
-                  else
-                    Map.update(
-                      prev_acc,
-                      {neighbor, direction},
-                      MapSet.new([{current, current_direction}]),
-                      &MapSet.put(&1, {current, current_direction})
-                    )
-                  end
+              new_prev =
+                if alt < current_neighbor_dist do
+                  Map.put(
+                    prev_acc,
+                    {neighbor, direction},
+                    MapSet.new([{current, current_direction}])
+                  )
+                else
+                  Map.update(
+                    prev_acc,
+                    {neighbor, direction},
+                    MapSet.new([{current, current_direction}]),
+                    &MapSet.put(&1, {current, current_direction})
+                  )
+                end
 
-                {new_prev, new_distances, global_acc, visited_acc}
-
-              true ->
-                {prev_acc, distances_acc, global_acc, visited_acc}
+              {new_prev, new_distances, visited_acc}
+            else
+              {prev_acc, distances_acc, visited_acc}
             end
           end
         )
 
-      dijkstra(queue, graph, distances, global_distances, prev, visited)
+      dijkstra(queue, graph, distances, prev, visited)
     end
   end
 
@@ -136,14 +133,7 @@ defmodule Solution do
       points
       |> Enum.reduce(%{}, fn point, acc -> Map.put(acc, point, MapSet.new()) end)
 
-    global_distances =
-      points
-      |> Enum.reduce(%{}, fn point, acc ->
-        Map.put(acc, point, @infinity)
-      end)
-      |> Map.put(start, 0)
-
-    {distances, prev, global_distances}
+    {distances, prev}
   end
 
   def solve_1(path) do
@@ -152,7 +142,7 @@ defmodule Solution do
       |> read_file()
       |> parse_maze()
 
-    {distances, prev, global_distances} = prepare_dijkstra(points, start)
+    {distances, prev} = prepare_dijkstra(points, start)
 
     queue =
       points
@@ -169,7 +159,6 @@ defmodule Solution do
         queue,
         points,
         distances,
-        global_distances,
         prev,
         MapSet.new([{start, :east}])
       )
@@ -200,52 +189,5 @@ defmodule Solution do
         MapSet.union(visited, nodes)
       )
     end
-  end
-
-  def visualise(map, x_lim, y_lim) do
-    0..15
-    |> Enum.map(fn y ->
-      0..15
-      |> Enum.reduce("", fn x, acc ->
-        present = Map.get(map, {x, y}, "#")
-        acc <> present
-      end)
-    end)
-    |> Enum.each(&IO.inspect/1)
-
-    map
-  end
-
-  def visualise_path(map, path) do
-    0..15
-    |> Enum.map(fn y ->
-      0..15
-      |> Enum.reduce("", fn x, acc ->
-        present =
-          if MapSet.member?(path, {x, y}),
-            do: "O",
-            else: if(MapSet.member?(map, {x, y}), do: ".", else: "#")
-
-        acc <> present
-      end)
-    end)
-    |> Enum.each(&IO.inspect/1)
-
-    path
-  end
-
-  def visualise_distances(map) do
-    0..15
-    |> Enum.map(fn y ->
-      0..15
-      |> Enum.reduce("", fn x, acc ->
-        present = Map.get(map, {x, y}, "#")
-        present = if is_number(present), do: Integer.to_string(present), else: present
-        acc <> String.pad_leading(present, 6)
-      end)
-    end)
-    |> Enum.each(&IO.inspect/1)
-
-    map
   end
 end
