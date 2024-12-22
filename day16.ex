@@ -23,7 +23,6 @@ defmodule Solution do
       end)
       |> Enum.reduce(%{}, fn {x, y, val}, acc -> Map.put(acc, {x, y}, val) end)
       |> Map.reject(fn {_, v} -> v == @wall end)
-      |> visualise(0, 0)
 
     {start, _} = maze |> Enum.find(fn {{x, y}, value} -> value == @start end)
     {finish, _} = maze |> Enum.find(fn {{x, y}, value} -> value == @finish end)
@@ -63,7 +62,7 @@ defmodule Solution do
 
   def dijkstra(queue, graph, distances, prev, visited) do
     if MapSet.size(queue) == 0 do
-      {distances, distances, prev}
+      {distances, prev}
     else
       {current, current_direction} =
         queue
@@ -73,19 +72,21 @@ defmodule Solution do
 
       visited = MapSet.put(visited, {current, current_direction})
 
-      {prev, distances, visited} =
+      {prev, distances, visited, queue} =
         current
         |> get_neighbors(graph)
         |> Enum.reject(fn point -> MapSet.member?(visited, point) end)
         |> Enum.reduce(
-          {prev, distances, visited},
-          fn {neighbor, direction}, {prev_acc, distances_acc, visited_acc} ->
+          {prev, distances, visited, queue},
+          fn {neighbor, direction}, {prev_acc, distances_acc, visited_acc, queue_acc} ->
             alt =
               Map.get(distances_acc, {current, current_direction}) +
                 get_weight(direction, current_direction)
 
             current_neighbor_dist =
               Map.get(distances_acc, {neighbor, direction})
+
+            queue_acc = MapSet.put(queue_acc, {neighbor, direction})
 
             if alt <= current_neighbor_dist do
               new_distances = Map.put(distances_acc, {neighbor, direction}, alt)
@@ -106,9 +107,9 @@ defmodule Solution do
                   )
                 end
 
-              {new_prev, new_distances, visited_acc}
+              {new_prev, new_distances, visited_acc, queue_acc}
             else
-              {prev_acc, distances_acc, visited_acc}
+              {prev_acc, distances_acc, visited_acc, queue_acc}
             end
           end
         )
@@ -117,50 +118,23 @@ defmodule Solution do
     end
   end
 
-  def prepare_dijkstra(points, start) do
-    distances =
-      points
-      |> Enum.reduce(%{}, fn point, acc ->
-        acc
-        |> Map.put({point, :north}, @infinity)
-        |> Map.put({point, :south}, @infinity)
-        |> Map.put({point, :east}, @infinity)
-        |> Map.put({point, :west}, @infinity)
-      end)
-      |> Map.put({start, :east}, 0)
-
-    prev =
-      points
-      |> Enum.reduce(%{}, fn point, acc -> Map.put(acc, point, MapSet.new()) end)
-
-    {distances, prev}
-  end
-
-  def solve_1(path) do
+  def solve(path) do
     {points, start, finish} =
       path
       |> read_file()
       |> parse_maze()
 
-    {distances, prev} = prepare_dijkstra(points, start)
+    distances = %{{start, :east} => 0}
+    queue = visited = MapSet.new([{start, :east}])
+    prev = %{{start, :east} => MapSet.new()}
 
-    queue =
-      points
-      |> Enum.reduce(MapSet.new(), fn point, acc ->
-        acc
-        |> MapSet.put({point, :north})
-        |> MapSet.put({point, :south})
-        |> MapSet.put({point, :west})
-        |> MapSet.put({point, :east})
-      end)
-
-    {distances, global_distances, prev} =
+    {distances, prev} =
       dijkstra(
         queue,
         points,
         distances,
         prev,
-        MapSet.new([{start, :east}])
+        visited
       )
 
     {traversal_start_tile, score} =
@@ -172,22 +146,19 @@ defmodule Solution do
   end
 
   def traverse_previous(to_visit, previous, start, visited \\ MapSet.new())
+  def traverse_previous([], _, _, visited), do: MapSet.size(visited) + 1
 
   def traverse_previous([current | rest], previous, start, visited) do
-    if current == start do
-      MapSet.size(visited) + 1
-    else
-      to_visit = previous[current]
+    to_visit = previous[current]
 
-      nodes =
-        to_visit |> Enum.reduce(MapSet.new(), fn {point, _dir}, acc -> MapSet.put(acc, point) end)
+    nodes =
+      to_visit |> Enum.reduce(MapSet.new(), fn {point, _dir}, acc -> MapSet.put(acc, point) end)
 
-      traverse_previous(
-        rest ++ MapSet.to_list(to_visit),
-        previous,
-        start,
-        MapSet.union(visited, nodes)
-      )
-    end
+    traverse_previous(
+      rest ++ MapSet.to_list(to_visit),
+      previous,
+      start,
+      MapSet.union(visited, nodes)
+    )
   end
 end
