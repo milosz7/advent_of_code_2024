@@ -1,5 +1,40 @@
-defmodule TreeNode do
+defmodule RulesTreeNode do
   defstruct left: nil, right: nil, value: nil
+
+  defp insert(nil, value, _), do: %RulesTreeNode{value: value}
+
+  defp insert(
+         %RulesTreeNode{left: left, right: right, value: value},
+         new_value,
+         rules_map
+       ) do
+    before = Map.get(rules_map, new_value, [])
+
+    if Enum.find(before, &(&1 == value)) do
+      %RulesTreeNode{left: insert(left, new_value, rules_map), right: right, value: value}
+    else
+      %RulesTreeNode{left: left, right: insert(right, new_value, rules_map), value: value}
+    end
+  end
+
+  def build(rules_map, line, tree \\ nil)
+  def build(_, [], tree), do: tree
+
+  def build(rules_map, line, nil) do
+    [h | t] = line
+    build(rules_map, t, %RulesTreeNode{value: h})
+  end
+
+  def build(rules_map, line, tree) do
+    [h | t] = line
+    build(rules_map, t, insert(tree, h, rules_map))
+  end
+
+  def inorder(nil), do: []
+
+  def inorder(tree) do
+    inorder(tree.left) ++ [tree.value] ++ inorder(tree.right)
+  end
 end
 
 defmodule Solution do
@@ -71,44 +106,9 @@ defmodule Solution do
     {rules_map, filtered}
   end
 
-  def inorder(nil), do: []
-
-  def inorder(tree) do
-    inorder(tree.left) ++ [tree.value] ++ inorder(tree.right)
-  end
-
-  def insert(nil, value, _), do: %TreeNode{value: value}
-
-  def insert(
-        %TreeNode{left: left, right: right, value: value},
-        new_value,
-        rules_map
-      ) do
-    before = Map.get(rules_map, new_value, [])
-
-    if Enum.find(before, &(&1 == value)) do
-      %TreeNode{left: insert(left, new_value, rules_map), right: right, value: value}
-    else
-      %TreeNode{left: left, right: insert(right, new_value, rules_map), value: value}
-    end
-  end
-
-  def build_tree(rules_map, line, tree \\ nil)
-  def build_tree(_, [], tree), do: tree
-
-  def build_tree(rules_map, line, nil) do
-    [h | t] = line
-    build_tree(rules_map, t, %TreeNode{value: h})
-  end
-
-  def build_tree(rules_map, line, tree) do
-    [h | t] = line
-    build_tree(rules_map, t, insert(tree, h, rules_map))
-  end
-
   def reorder_lines({rules_map, lines}) do
     lines
-    |> Enum.map(fn line -> build_tree(rules_map, line) end)
+    |> Enum.map(&RulesTreeNode.build(rules_map, &1))
   end
 
   def solve_1(file_path) do
@@ -125,7 +125,7 @@ defmodule Solution do
     |> parse_input()
     |> invalid_lines()
     |> reorder_lines()
-    |> Enum.map(&inorder/1)
+    |> Enum.map(&RulesTreeNode.inorder/1)
     |> sum_middle_elements()
   end
 end
