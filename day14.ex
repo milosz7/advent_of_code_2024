@@ -70,18 +70,16 @@ defmodule Solution do
       |> read_file()
       |> parse_input()
 
-    patterns =
-      1..10000
-      |> Enum.reduce({[], input}, fn second, {configs, robots} ->
-        robots = Enum.map(robots, fn robot -> move_robot(robot, 1) end)
-        {[{robots, second} | configs], robots}
-      end)
-      |> elem(0)
-      |> Task.async_stream(fn {robots, second} -> {count_quadrants(robots), second, robots} end)
-      |> Stream.map(fn {:ok, res} -> res end)
-      |> Enum.sort_by(&elem(&1, 0))
-      |> Enum.take(1)
-      |> Enum.map(&visualise/1)
+    1..10000
+    |> Enum.reduce({[], input}, fn second, {configs, robots} ->
+      robots = Enum.map(robots, fn robot -> move_robot(robot, 1) end)
+      {[{robots, second} | configs], robots}
+    end)
+    |> elem(0)
+    |> Task.async_stream(fn {robots, second} -> {count_quadrants(robots), second, robots} end)
+    |> Stream.map(fn {:ok, res} -> res end)
+    |> Enum.min_by(&elem(&1, 0))
+    |> visualise()
   end
 
   def visualise({score, idx, pattern}) do
