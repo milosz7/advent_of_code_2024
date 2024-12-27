@@ -30,9 +30,10 @@ defmodule Solution do
     {table, len}
   end
 
+  def validate_sequence(sequence, len, table, towels, idx \\ 0)
   def validate_sequence(_, len, table, _, idx) when len + 1 == idx, do: table[len]
 
-  def validate_sequence(sequence, len, table, towels, idx \\ 0) do
+  def validate_sequence(sequence, len, table, towels, idx) do
     table =
       0..idx
       |> Enum.reduce_while(table, fn n, acc ->
@@ -48,6 +49,22 @@ defmodule Solution do
     validate_sequence(sequence, len, table, towels, idx + 1)
   end
 
+  def validate_sequence(sequence, len, table, towels, idx) do
+    table =
+      0..idx
+      |> Enum.reduce(table, fn n, acc ->
+        substr = String.slice(sequence, n..(idx - 1)//1)
+
+        if acc[n] and substr in towels do
+          Map.put(acc, idx, true)
+        else
+          {:cont, acc}
+        end
+      end)
+
+    validate_sequence(sequence, len, table, towels, idx + 1)
+  end
+
   def solve_1(path) do
     {towels, patterns} =
       path
@@ -55,10 +72,10 @@ defmodule Solution do
       |> parse_input()
 
     patterns
-    |> Enum.reduce([], fn pattern, acc ->
+    |> Task.async_stream(fn pattern ->
       {table, len} = init_table(pattern)
-      [validate_sequence(pattern, len, table, towels) | acc]
+      validate_sequence(pattern, len, table, towels)
     end)
-    |> Enum.reduce(0, fn res, acc -> if res, do: acc + 1, else: acc end)
+    |> Enum.reduce(0, fn {:ok, res}, acc -> if res, do: acc + 1, else: acc end)
   end
 end
