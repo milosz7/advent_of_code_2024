@@ -131,35 +131,23 @@ defmodule Solution do
 
   def find_twenty_picosecond_for_point({x0, y0} = point, maze, distances) do
     point
-    # |> IO.inspect(label: "point")
     |> get_surrounding(maze)
-    # |> IO.inspect(label: "neighbors")
-    |> Enum.reduce(MapSet.new(), fn {x, y, len}, acc ->
-      MapSet.put(acc, {{x0, y0}, {x, y}, len})
-    end)
-    # |> IO.inspect(label: "mapset_distances")
-    # |> Stream.filter(fn {p1, p2, _len} -> distances[p1] < distances[p2] end)
+    |> Enum.map(fn {x, y, len} -> {{x0, y0}, {x, y}, len} end)
     |> Enum.filter(fn {p1, p2, len} -> distances[p2] - distances[p1] - len >= @min_gain end)
-    # |> IO.inspect(label: "filtered_distances")
-    |> Enum.reduce(%{}, fn {p1, p2, len}, acc ->
-      Map.put(acc, {p1, p2, len}, distances[p2] - distances[p1] - len)
-    end)
+    |> Enum.map(fn {p1, p2, len} -> {{p1, p2, len}, distances[p2] - distances[p1] - len} end)
   end
 
   def get_surrounding({x0, y0}, maze, range \\ 20) do
     for y <- (y0 - range)..(y0 + range), x <- (x0 - range)..(x0 + range) do
       {x, y, abs(x - x0) + abs(y - y0)}
     end
-    |> Stream.filter(fn {x, y, dist} -> dist <= range end)
-    |> Stream.filter(fn {x, y, _dist} -> MapSet.member?(maze, {x, y}) end)
+    |> Enum.filter(fn {x, y, dist} -> dist <= range end)
+    |> Enum.filter(fn {x, y, _dist} -> MapSet.member?(maze, {x, y}) end)
   end
 
   def find_twenty_picosecond_cheats(maze, distances) do
     maze
-    |> Task.async_stream(&find_twenty_picosecond_for_point(&1, maze, distances))
-    |> Enum.reduce([], fn {:ok, res}, acc -> [res | acc] end)
-
-    # |> Enum.map(&find_twenty_picosecond_for_point(&1, maze, distances))
+    |> Enum.map(&find_twenty_picosecond_for_point(&1, maze, distances))
   end
 
   def solve_2(path) do
@@ -175,21 +163,13 @@ defmodule Solution do
     distances = dijkstra(queue, maze, distances, visited)
 
     find_twenty_picosecond_cheats(maze, distances)
-    |> Enum.flat_map(fn data ->
-      data
-      # |> IO.inspect()
-      # |> Stream.filter(&(map_size(&1) > 0))
-      |> Enum.reduce(%{}, fn {_key, val}, acc -> Map.update(acc, val, 1, &(&1 + 1)) end)
-
-      # |> IO.inspect()
-      # |> Enum.filter(fn {k, _v} -> k >= 20 end)
+    |> Enum.map(fn data ->
+      Enum.frequencies_by(data, fn {_key, val} -> val end)
     end)
-    # |> Enum.reduce(%{}, fn {key, val}, acc -> Map.update(acc, key, val, &(&1 + val)) end)
-    |> IO.inspect()
-    |> Enum.reduce(0, fn {_k, v}, acc -> acc + v end)
-
-    # |> Enum.reduce(%{}, fn {key, val}, acc -> Map.update(acc, key, val, &(&1 + val)) end)
-    #   |> Map.values()
-    # |> Enum.sum()
+    |> Enum.reduce(%{}, fn freq_map, acc ->
+      Map.merge(acc, freq_map, fn _k, v1, v2 -> v1 + v2 end)
+    end)
+    |> Map.values()
+    |> Enum.sum()
   end
 end
