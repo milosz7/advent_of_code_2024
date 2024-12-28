@@ -129,27 +129,37 @@ defmodule Solution do
     |> Enum.reduce(0, fn {_k, v}, acc -> acc + v end)
   end
 
-  def find_twenty_picosecond_for_point({x0, y0}, maze, distances) do
-    maze
-    |> Enum.reduce(MapSet.new(), fn {x, y}, acc ->
-      len = abs(x0 - x) + abs(y0 - y)
-
-      if len <= 20 do
-        MapSet.put(acc, {{x0, y0}, {x, y}, len})
-      else
-        acc
-      end
+  def find_twenty_picosecond_for_point({x0, y0} = point, maze, distances) do
+    point
+    # |> IO.inspect(label: "point")
+    |> get_surrounding(maze)
+    # |> IO.inspect(label: "neighbors")
+    |> Enum.reduce(MapSet.new(), fn {x, y, len}, acc ->
+      MapSet.put(acc, {{x0, y0}, {x, y}, len})
     end)
-    |> Enum.filter(fn {p1, p2, _len} -> distances[p1] < distances[p2] end)
+    # |> IO.inspect(label: "mapset_distances")
+    # |> Stream.filter(fn {p1, p2, _len} -> distances[p1] < distances[p2] end)
+    |> Enum.filter(fn {p1, p2, len} -> distances[p2] - distances[p1] - len >= @min_gain end)
+    # |> IO.inspect(label: "filtered_distances")
     |> Enum.reduce(%{}, fn {p1, p2, len}, acc ->
       Map.put(acc, {p1, p2, len}, distances[p2] - distances[p1] - len)
     end)
+  end
+
+  def get_surrounding({x0, y0}, maze, range \\ 20) do
+    for y <- (y0 - range)..(y0 + range), x <- (x0 - range)..(x0 + range) do
+      {x, y, abs(x - x0) + abs(y - y0)}
+    end
+    |> Stream.filter(fn {x, y, dist} -> dist <= range end)
+    |> Stream.filter(fn {x, y, _dist} -> MapSet.member?(maze, {x, y}) end)
   end
 
   def find_twenty_picosecond_cheats(maze, distances) do
     maze
     |> Task.async_stream(&find_twenty_picosecond_for_point(&1, maze, distances))
     |> Enum.reduce([], fn {:ok, res}, acc -> [res | acc] end)
+
+    # |> Enum.map(&find_twenty_picosecond_for_point(&1, maze, distances))
   end
 
   def solve_2(path) do
@@ -167,12 +177,19 @@ defmodule Solution do
     find_twenty_picosecond_cheats(maze, distances)
     |> Enum.flat_map(fn data ->
       data
-      |> Map.values()
-      |> Enum.reduce(%{}, fn val, acc -> Map.update(acc, val, 1, &(&1 + 1)) end)
-      |> Enum.filter(fn {k, _v} -> k >= 100 end)
+      # |> IO.inspect()
+      # |> Stream.filter(&(map_size(&1) > 0))
+      |> Enum.reduce(%{}, fn {_key, val}, acc -> Map.update(acc, val, 1, &(&1 + 1)) end)
+
+      # |> IO.inspect()
+      # |> Enum.filter(fn {k, _v} -> k >= 20 end)
     end)
-    |> Enum.reduce(%{}, fn {key, val}, acc -> Map.update(acc, key, val, &(&1 + val)) end)
-    |> Map.values()
-    |> Enum.sum()
+    # |> Enum.reduce(%{}, fn {key, val}, acc -> Map.update(acc, key, val, &(&1 + val)) end)
+    |> IO.inspect()
+    |> Enum.reduce(0, fn {_k, v}, acc -> acc + v end)
+
+    # |> Enum.reduce(%{}, fn {key, val}, acc -> Map.update(acc, key, val, &(&1 + val)) end)
+    #   |> Map.values()
+    # |> Enum.sum()
   end
 end
