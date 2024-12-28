@@ -169,7 +169,6 @@ defmodule Solution do
     |> Enum.reduce(%{}, fn freq_map, acc ->
       Map.merge(acc, freq_map, fn _k, v1, v2 -> v1 + v2 end)
     end)
-    |> Map.values()
-    |> Enum.sum()
+    |> Enum.reduce(0, fn {_k, v}, acc -> acc + v end)
   end
 end
