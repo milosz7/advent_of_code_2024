@@ -7,11 +7,6 @@ defmodule Solution do
     |> String.split("\n")
   end
 
-  defp parse_input(lines) do
-    lines
-    |> Enum.map(&String.split(&1, "", trim: true))
-  end
-
   defp numpad_map() do
     positions =
       for x <- 0..3, y <- 0..2, reduce: MapSet.new() do
@@ -63,7 +58,7 @@ defmodule Solution do
 
   defp bfs(to_visit, grid, visited \\ Map.new())
 
-  defp bfs([], grid, visited), do: visited
+  defp bfs([], _grid, visited), do: visited
 
   defp bfs([{coords, distance} | rest], grid, visited) do
     if coords in visited do
