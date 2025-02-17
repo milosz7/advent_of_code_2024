@@ -103,6 +103,7 @@ defmodule Solution do
   def is_output?(register), do: register =~ ~r"z\d{2,}"
 
   defp validate_circuit(operation, operations) do
+    # https://en.wikipedia.org/wiki/Adder_(electronics)#/media/File:Full-adder_logic_diagram.svg
     %Operation{reg_in_l: left, reg_in_r: right, reg_out: out, operator: op} = operation
 
     cond do
